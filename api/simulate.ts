@@ -12,6 +12,8 @@ const requestSchema = z
   })
   .strict();
 
+type SimulationRequest = z.infer<typeof requestSchema>;
+
 const riskSchema = z.enum(["Low", "Medium", "High", "Critical"]);
 
 function findingSchema<const TAgent extends string>(agent: TAgent) {
@@ -69,6 +71,47 @@ function jsonResponse(body: unknown, status: number) {
   });
 }
 
+function safeErrorDetails(error: unknown) {
+  if (error instanceof OpenAI.APIError) {
+    return {
+      name: error.name,
+      status: error.status,
+      code: error.code,
+      type: error.type,
+      param: error.param,
+      requestId: error.requestID,
+    };
+  }
+
+  return {
+    name: error instanceof Error ? error.name : "UnknownError",
+  };
+}
+
+function safeZodIssues(error: z.ZodError) {
+  return error.issues.map((issue) => ({
+    code: issue.code,
+    path: issue.path.join("."),
+  }));
+}
+
+async function requestSimulation(
+  apiKey: string,
+  scenario: SimulationRequest,
+) {
+  const openai = new OpenAI({ apiKey });
+
+  return openai.responses.create({
+    model: "gpt-5.6-sol",
+    instructions,
+    input: `Scenario data:\n${JSON.stringify(scenario, null, 2)}`,
+    max_output_tokens: 2_200,
+    text: {
+      format: zodTextFormat(simulationResultSchema, "premortem_simulation"),
+    },
+  });
+}
+
 export default {
   async fetch(request: Request): Promise<Response> {
     if (request.method !== "POST") {
@@ -88,13 +131,20 @@ export default {
 
     try {
       body = await request.json();
-    } catch {
+    } catch (error) {
+      console.error(
+        "[simulate] request validation failed",
+        safeErrorDetails(error),
+      );
       return jsonResponse({ error: "Invalid request body." }, 400);
     }
 
     const parsedRequest = requestSchema.safeParse(body);
 
     if (!parsedRequest.success) {
+      console.error("[simulate] request validation failed", {
+        issues: safeZodIssues(parsedRequest.error),
+      });
       return jsonResponse(
         {
           error: "Invalid request body.",
@@ -107,35 +157,57 @@ export default {
     const apiKey = process.env.OPENAI_API_KEY;
 
     if (!apiKey) {
+      console.error("OPENAI_API_KEY is missing");
       return jsonResponse({ error: "Unable to generate simulation." }, 500);
     }
+
+    let response: Awaited<ReturnType<typeof requestSimulation>>;
 
     try {
-      const openai = new OpenAI({ apiKey });
-      const response = await openai.responses.parse({
-        model: "gpt-5.6-sol",
-        instructions,
-        input: `Scenario data:\n${JSON.stringify(parsedRequest.data, null, 2)}`,
-        max_output_tokens: 2_200,
-        text: {
-          format: zodTextFormat(
-            simulationResultSchema,
-            "premortem_simulation",
-          ),
-        },
-      });
-
-      const validatedResult = simulationResultSchema.safeParse(
-        response.output_parsed,
+      response = await requestSimulation(apiKey, parsedRequest.data);
+    } catch (error) {
+      console.error(
+        "[simulate] OpenAI request failed",
+        safeErrorDetails(error),
       );
-
-      if (!validatedResult.success) {
-        return jsonResponse({ error: "Unable to generate simulation." }, 500);
-      }
-
-      return jsonResponse(validatedResult.data, 200);
-    } catch {
       return jsonResponse({ error: "Unable to generate simulation." }, 500);
     }
+
+    let parsedOutput: unknown;
+
+    try {
+      if (!response.output_text) {
+        throw new Error("EmptyResponse");
+      }
+
+      parsedOutput = JSON.parse(response.output_text);
+    } catch (error) {
+      console.error(
+        "[simulate] response parsing failed",
+        safeErrorDetails(error),
+      );
+      return jsonResponse({ error: "Unable to generate simulation." }, 500);
+    }
+
+    let validatedResult: ReturnType<typeof simulationResultSchema.safeParse>;
+
+    try {
+      validatedResult = simulationResultSchema.safeParse(parsedOutput);
+    } catch (error) {
+      console.error(
+        "[simulate] Zod result validation failed",
+        safeErrorDetails(error),
+      );
+      return jsonResponse({ error: "Unable to generate simulation." }, 500);
+    }
+
+    if (!validatedResult.success) {
+      console.error("[simulate] Zod result validation failed", {
+        issues: safeZodIssues(validatedResult.error),
+      });
+      return jsonResponse({ error: "Unable to generate simulation." }, 500);
+    }
+
+    return jsonResponse(validatedResult.data, 200);
   },
 };
