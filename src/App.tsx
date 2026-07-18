@@ -304,7 +304,7 @@ function App() {
   return (
     <main className="landing">
       <section
-        className={`hero${view !== "form" ? " hero--expanded" : ""}`}
+        className={`hero${view !== "form" ? " hero--expanded" : ""}${view === "loading" ? " hero--loading" : ""}`}
         aria-labelledby="product-name"
       >
         <div className="intro">

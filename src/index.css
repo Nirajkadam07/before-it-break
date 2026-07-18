@@ -18,6 +18,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh;
   background:
     radial-gradient(circle at top left, rgba(214, 101, 64, 0.16), transparent 32rem),
     linear-gradient(135deg, #fffaf2 0%, #f0eadf 48%, #dce8e5 100%);
@@ -36,11 +37,16 @@ button {
 
 #root {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .landing {
+  --page-gutter-block: clamp(1.25rem, 4vh, 3rem);
+  --page-gutter-inline: clamp(1.25rem, 5vw, 4rem);
+
   min-height: 100vh;
-  padding: clamp(1.25rem, 5vw, 4rem);
+  min-height: 100dvh;
+  padding: var(--page-gutter-block) var(--page-gutter-inline);
 }
 
 .hero {
@@ -49,7 +55,12 @@ button {
   gap: clamp(3rem, 8vw, 7rem);
   align-items: center;
   width: min(100%, 72rem);
-  min-height: calc(100vh - clamp(2.5rem, 10vw, 8rem));
+  min-height: calc(
+    100vh - var(--page-gutter-block) - var(--page-gutter-block)
+  );
+  min-height: calc(
+    100dvh - var(--page-gutter-block) - var(--page-gutter-block)
+  );
   margin: 0 auto;
 }
 
@@ -65,6 +76,12 @@ button {
 
 .hero--expanded h1 {
   font-size: clamp(3.5rem, 8vw, 6rem);
+}
+
+.hero--loading {
+  grid-template-rows: auto minmax(min-content, 1fr);
+  gap: clamp(1.5rem, 4vh, 2.5rem);
+  align-content: stretch;
 }
 
 .intro {
@@ -336,9 +353,10 @@ textarea[aria-invalid="true"]:focus {
 
 .simulation-loading {
   display: grid;
-  gap: 2rem;
-  min-height: 20rem;
-  padding: clamp(1.5rem, 5vw, 2.75rem);
+  gap: 1.5rem;
+  align-self: center;
+  min-height: 0;
+  padding: clamp(1.25rem, 3vh, 2.25rem) clamp(1.25rem, 5vw, 2.75rem);
   border: 1px solid rgba(75, 64, 55, 0.14);
   border-radius: 0.5rem;
   background: rgba(255, 253, 249, 0.88);
@@ -385,7 +403,7 @@ textarea[aria-invalid="true"]:focus {
   grid-template-columns: 2rem minmax(0, 1fr);
   gap: 0.9rem;
   align-items: center;
-  min-height: 3.25rem;
+  min-height: 3rem;
   color: #8a8179;
   font-weight: 650;
   transition: color 180ms ease;
@@ -537,11 +555,13 @@ textarea[aria-invalid="true"]:focus {
 }
 
 .result-hero h2 {
-  max-width: 54rem;
+  max-width: 20ch;
   margin: 0;
-  font-size: clamp(2.75rem, 7vw, 5.8rem);
-  line-height: 0.98;
+  font-size: 3.75rem;
+  line-height: 1.04;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .failure-narrative {
@@ -944,12 +964,23 @@ textarea[aria-invalid="true"]:focus {
   outline-offset: 4px;
 }
 
+@media (max-width: 1100px) {
+  .result-hero h2 {
+    font-size: 3.35rem;
+  }
+}
+
 @media (max-width: 860px) {
   .hero {
     grid-template-columns: 1fr;
     gap: 2.5rem;
-    min-height: auto;
-    padding: 2rem 0;
+    min-height: calc(
+      100vh - var(--page-gutter-block) - var(--page-gutter-block)
+    );
+    min-height: calc(
+      100dvh - var(--page-gutter-block) - var(--page-gutter-block)
+    );
+    padding: 0;
   }
 
   .intro {
@@ -964,10 +995,18 @@ textarea[aria-invalid="true"]:focus {
     gap: 2.5rem;
   }
 
+  .hero--loading {
+    gap: clamp(1.5rem, 4vh, 2.5rem);
+  }
+
   .result-hero {
     grid-template-columns: 1fr;
     gap: 2rem;
     align-items: start;
+  }
+
+  .result-hero h2 {
+    font-size: 2.9rem;
   }
 
   .risk-summary {
@@ -1018,12 +1057,17 @@ textarea[aria-invalid="true"]:focus {
 
 @media (max-width: 520px) {
   .landing {
-    padding: 1.25rem;
+    --page-gutter-block: 1.25rem;
+    --page-gutter-inline: 1.25rem;
   }
 
   .hero {
     gap: 2rem;
-    padding: 1rem 0 2rem;
+    padding: 0;
+  }
+
+  .hero--loading {
+    gap: 1.25rem;
   }
 
   h1 {
@@ -1082,7 +1126,8 @@ textarea[aria-invalid="true"]:focus {
   }
 
   .result-hero h2 {
-    font-size: clamp(2rem, 12vw, 3.2rem);
+    max-width: 100%;
+    font-size: 2.35rem;
   }
 
   .primary-button {
