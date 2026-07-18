@@ -1,7 +1,6 @@
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
-import type { SimulationResult } from "../src/simulation.js";
 
 const requestSchema = z
   .object({
@@ -48,7 +47,9 @@ const simulationResultSchema = z
       .max(9),
     alternateFuture: z.string().min(1).max(1_000),
   })
-  .strict() satisfies z.ZodType<SimulationResult>;
+  .strict();
+
+type SimulationResult = z.infer<typeof simulationResultSchema>;
 
 const instructions = `You are conducting a concise pre-mortem for a proposed plan.
 
@@ -208,6 +209,7 @@ export default {
       return jsonResponse({ error: "Unable to generate simulation." }, 500);
     }
 
-    return jsonResponse(validatedResult.data, 200);
+    const result: SimulationResult = validatedResult.data;
+    return jsonResponse(result, 200);
   },
 };
