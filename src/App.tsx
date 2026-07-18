@@ -12,7 +12,7 @@ type FormData = {
   constraints: string;
 };
 
-type FormErrors = Partial<Record<"plan" | "success", string>>;
+type FormErrors = Partial<Record<keyof FormData, string>>;
 type ViewState = "form" | "loading" | "result" | "error";
 type ExampleId = "saas-launch" | "college-festival" | "youtube-channel";
 
@@ -28,6 +28,13 @@ const initialFormData: FormData = {
   success: "",
   deadline: "",
   constraints: "",
+};
+
+const inputLimits: Record<keyof FormData, number> = {
+  plan: 1_500,
+  success: 800,
+  deadline: 150,
+  constraints: 1_200,
 };
 
 const scenarioExamples: ScenarioExample[] = [
@@ -159,7 +166,10 @@ function App() {
   const updateField = (field: keyof FormData, value: string) => {
     setFormData((current) => ({ ...current, [field]: value }));
 
-    if ((field === "plan" || field === "success") && value.trim()) {
+    const hasRequiredValue =
+      (field !== "plan" && field !== "success") || Boolean(value.trim());
+
+    if (hasRequiredValue && value.length <= inputLimits[field]) {
       setErrors((current) => ({ ...current, [field]: undefined }));
     }
   };
@@ -267,10 +277,22 @@ function App() {
 
     if (!formData.plan.trim()) {
       nextErrors.plan = "Tell us what you are planning.";
+    } else if (formData.plan.length > inputLimits.plan) {
+      nextErrors.plan = `Keep your plan under ${inputLimits.plan.toLocaleString()} characters.`;
     }
 
     if (!formData.success.trim()) {
       nextErrors.success = "Describe what success looks like.";
+    } else if (formData.success.length > inputLimits.success) {
+      nextErrors.success = `Keep the success definition under ${inputLimits.success.toLocaleString()} characters.`;
+    }
+
+    if (formData.deadline.length > inputLimits.deadline) {
+      nextErrors.deadline = `Keep the deadline under ${inputLimits.deadline.toLocaleString()} characters.`;
+    }
+
+    if (formData.constraints.length > inputLimits.constraints) {
+      nextErrors.constraints = `Keep constraints under ${inputLimits.constraints.toLocaleString()} characters.`;
     }
 
     setErrors(nextErrors);
@@ -353,6 +375,7 @@ function App() {
                 onChange={(event) => updateField("plan", event.target.value)}
                 placeholder="Example: Launch an AI code-review tool for small development teams."
                 rows={4}
+                maxLength={inputLimits.plan}
                 required
                 aria-invalid={Boolean(errors.plan)}
                 aria-describedby={errors.plan ? "plan-error" : undefined}
@@ -375,6 +398,7 @@ function App() {
                 onChange={(event) => updateField("success", event.target.value)}
                 placeholder="Example: Reach 50 paying teams within three months."
                 rows={4}
+                maxLength={inputLimits.success}
                 required
                 aria-invalid={Boolean(errors.success)}
                 aria-describedby={errors.success ? "success-error" : undefined}
@@ -395,7 +419,15 @@ function App() {
                 value={formData.deadline}
                 onChange={(event) => updateField("deadline", event.target.value)}
                 placeholder="Example: September 30"
+                maxLength={inputLimits.deadline}
+                aria-invalid={Boolean(errors.deadline)}
+                aria-describedby={errors.deadline ? "deadline-error" : undefined}
               />
+              {errors.deadline && (
+                <p className="field-error" id="deadline-error" role="alert">
+                  {errors.deadline}
+                </p>
+              )}
             </div>
 
             <div className="form-field">
@@ -409,7 +441,17 @@ function App() {
                 }
                 placeholder="Example: Solo founder, limited budget, no existing audience."
                 rows={3}
+                maxLength={inputLimits.constraints}
+                aria-invalid={Boolean(errors.constraints)}
+                aria-describedby={
+                  errors.constraints ? "constraints-error" : undefined
+                }
               />
+              {errors.constraints && (
+                <p className="field-error" id="constraints-error" role="alert">
+                  {errors.constraints}
+                </p>
+              )}
             </div>
 
               <button

@@ -575,6 +575,7 @@ textarea[aria-invalid="true"]:focus {
   display: grid;
   gap: clamp(3.5rem, 8vw, 6rem);
   width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .result-hero {

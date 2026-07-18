@@ -4,10 +4,10 @@ import { z } from "zod";
 
 const requestSchema = z
   .object({
-    plan: z.string().trim().min(1).max(4_000),
-    successDefinition: z.string().trim().min(1).max(2_000),
-    deadline: z.string().trim().max(500).optional(),
-    constraints: z.string().trim().max(2_000).optional(),
+    plan: z.string().trim().min(1).max(1_500),
+    successDefinition: z.string().trim().min(1).max(800),
+    deadline: z.string().trim().max(150).optional(),
+    constraints: z.string().trim().max(1_200).optional(),
   })
   .strict();
 
@@ -24,34 +24,41 @@ const agentSchema = z.enum([
 const agentFindingSchema = z
   .object({
     agent: agentSchema,
-    finding: z.string(),
+    finding: z.string().trim().min(1).max(700),
     severity: riskSchema,
   })
   .strict();
 
 const preventiveActionSchema = z
   .object({
-    action: z.string(),
+    action: z.string().trim().min(1).max(300),
     timeframe: z.enum(["Today", "This Week", "Monitor"]),
   })
   .strict();
 
 const simulationResultSchema = z
   .object({
-    failureHeadline: z.string(),
-    failureNarrative: z.string(),
+    failureHeadline: z.string().trim().min(1).max(240),
+    failureNarrative: z.string().trim().min(1).max(1_500),
     overallRisk: riskSchema,
-    agentFindings: z.array(agentFindingSchema),
-    failureChain: z.array(z.string()),
-    warningSignals: z.array(z.string()),
-    preventiveActions: z.array(preventiveActionSchema),
-    alternateFuture: z.string(),
+    agentFindings: z.array(agentFindingSchema).length(4),
+    failureChain: z
+      .array(z.string().trim().min(1).max(300))
+      .min(2)
+      .max(6),
+    warningSignals: z
+      .array(z.string().trim().min(1).max(300))
+      .min(1)
+      .max(8),
+    preventiveActions: z.array(preventiveActionSchema).min(3).max(12),
+    alternateFuture: z.string().trim().min(1).max(1_200),
   })
   .strict();
 
 type SimulationResult = z.infer<typeof simulationResultSchema>;
 
 const CURRENT_MODEL = "gpt-5.6-sol";
+const OPENAI_TIMEOUT_MS = 45_000;
 
 const SYSTEM_PROMPT = `You are conducting a concise pre-mortem for a proposed plan.
 
@@ -102,7 +109,11 @@ async function requestSimulation(
   apiKey: string,
   scenario: SimulationRequest,
 ) {
-  const openai = new OpenAI({ apiKey });
+  const openai = new OpenAI({
+    apiKey,
+    maxRetries: 0,
+    timeout: OPENAI_TIMEOUT_MS,
+  });
   const userPrompt = `Scenario data:\n${JSON.stringify(scenario, null, 2)}`;
 
   return openai.responses.parse({

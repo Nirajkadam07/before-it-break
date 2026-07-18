@@ -12,8 +12,8 @@ const timeframes: Array<
 const investigatorIcons: Record<string, string> = {
   "Operations Investigator": "documentation-icon",
   "Human Behaviour Investigator": "social-icon",
-  "Technical Investigator": "github-icon",
-  Skeptic: "x-icon",
+  "Technical Investigator": "technical-icon",
+  Skeptic: "skeptic-icon",
 };
 
 function severityClass(severity: SimulationResult["overallRisk"]) {
