@@ -114,9 +114,50 @@ h1 {
   line-height: 1.5;
 }
 
+.product-explanation {
+  max-width: 32rem;
+  margin: 1.5rem 0 0;
+  color: #5d554e;
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.benefit-list {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  color: #29231f;
+  font-size: 0.92rem;
+  font-weight: 750;
+  list-style: none;
+}
+
+.benefit-list li {
+  display: grid;
+  grid-template-columns: 0.85rem minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.benefit-list li::before {
+  width: 0.65rem;
+  height: 0.65rem;
+  border: 2px solid #255f62;
+  border-radius: 50%;
+  content: "";
+}
+
+.intro-disclaimer {
+  margin: 1.4rem 0 0;
+  color: #766d66;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
 .form-workspace {
   display: grid;
-  gap: 1.25rem;
+  gap: 1rem;
   min-width: 0;
 }
 
@@ -125,42 +166,34 @@ h1 {
 }
 
 .example-section__heading {
-  display: flex;
-  gap: 1rem;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.65rem;
 }
 
 .example-section__heading h2 {
   margin: 0;
-  font-size: 1rem;
+  color: #655c55;
+  font-size: 0.84rem;
+  font-weight: 750;
   letter-spacing: 0;
-}
-
-.example-section__heading p {
-  margin: 0;
-  color: #766d66;
-  font-size: 0.82rem;
 }
 
 .example-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 0.6rem;
 }
 
 .example-card {
   position: relative;
   display: grid;
-  grid-template-rows: auto minmax(2.6rem, 1fr) auto;
-  gap: 0.45rem;
+  grid-template-rows: auto minmax(2.15rem, 1fr) auto;
+  gap: 0.35rem;
   min-width: 0;
-  min-height: 7.75rem;
-  padding: 1rem;
+  min-height: 6.75rem;
+  padding: 0.85rem;
   border: 1px solid rgba(75, 64, 55, 0.2);
   border-radius: 0.5rem;
-  background: rgba(255, 253, 249, 0.72);
+  background: rgba(255, 253, 249, 0.48);
   color: #2a2521;
   cursor: pointer;
   text-align: left;
@@ -230,13 +263,35 @@ h1 {
 
 .premortem-form {
   display: grid;
-  gap: 1.25rem;
-  padding: clamp(1.25rem, 4vw, 2rem);
+  gap: 1rem;
+  padding: clamp(1.25rem, 3vw, 1.75rem);
   border: 1px solid rgba(75, 64, 55, 0.14);
   border-radius: 0.5rem;
   background: rgba(255, 253, 249, 0.88);
   box-shadow: 0 1.5rem 4rem rgba(67, 43, 34, 0.12);
   backdrop-filter: blur(12px);
+}
+
+.form-heading {
+  padding-bottom: 0.2rem;
+}
+
+.form-heading h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.form-heading p {
+  margin: 0.45rem 0 0;
+  color: #6c625a;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.premortem-form textarea {
+  min-height: 5.5rem;
 }
 
 .form-field {
@@ -341,14 +396,6 @@ textarea[aria-invalid="true"]:focus {
   cursor: not-allowed;
   opacity: 0.62;
   transform: none;
-}
-
-.form-disclaimer {
-  margin: -0.25rem 0 0;
-  color: #766d66;
-  font-size: 0.78rem;
-  line-height: 1.45;
-  text-align: center;
 }
 
 .simulation-loading {

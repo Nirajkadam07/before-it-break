@@ -311,41 +311,38 @@ function App() {
           <p className="eyebrow">Pre-mortem workspace</p>
           <h1 id="product-name">Before It Breaks</h1>
           <p className="tagline">Rehearse the failure. Prevent the future.</p>
+          {view === "form" && (
+            <>
+              <p className="product-explanation">
+                Describe an important plan. A team of AI investigators will
+                simulate how it could fail, trace the root causes, identify
+                early warning signs, and give you preventive actions.
+              </p>
+              <ul className="benefit-list">
+                <li>Uncover hidden assumptions</li>
+                <li>See the chain of failure</li>
+                <li>Know what to do now</li>
+              </ul>
+              <p className="intro-disclaimer">
+                A planning simulation, not a prediction.
+              </p>
+            </>
+          )}
         </div>
 
         {view === "form" && (
           <div className="form-workspace">
-            <section className="example-section" aria-labelledby="examples-title">
-              <div className="example-section__heading">
-                <h2 id="examples-title">Try an example</h2>
-                <p>Start with a scenario, then make it yours.</p>
-              </div>
-              <div className="example-grid">
-                {scenarioExamples.map((example) => {
-                  const isSelected = selectedExample === example.id;
-
-                  return (
-                    <button
-                      className={`example-card${isSelected ? " is-selected" : ""}`}
-                      type="button"
-                      aria-pressed={isSelected}
-                      onClick={() => selectExample(example)}
-                      key={example.id}
-                    >
-                      <span className="example-card__indicator" aria-hidden="true">
-                        {isSelected ? "\u2713" : ""}
-                      </span>
-                      <strong>{example.title}</strong>
-                      <span>{example.summary}</span>
-                      <small>{example.values.deadline}</small>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            <form className="premortem-form" onSubmit={handleSubmit} noValidate>
-            <div className="form-field">
+            <form
+              className="premortem-form"
+              onSubmit={handleSubmit}
+              aria-labelledby="form-title"
+              noValidate
+            >
+              <header className="form-heading">
+                <h2 id="form-title">Run your pre-mortem</h2>
+                <p>Tell us what you are planning and what success looks like.</p>
+              </header>
+              <div className="form-field">
               <label htmlFor="plan">
                 What are you planning? <span aria-hidden="true">*</span>
               </label>
@@ -365,7 +362,7 @@ function App() {
                   {errors.plan}
                 </p>
               )}
-            </div>
+              </div>
 
             <div className="form-field">
               <label htmlFor="success">
@@ -415,18 +412,44 @@ function App() {
               />
             </div>
 
-            <button
-              className="primary-button"
-              type="submit"
-              disabled={activeRequest.current !== null}
-            >
-              Simulate the future
-            </button>
-            <p className="form-disclaimer">
-              AI-generated pre-mortem scenarios are planning exercises, not
-              predictions.
-            </p>
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={activeRequest.current !== null}
+              >
+                Simulate the future
+              </button>
             </form>
+
+            <section className="example-section" aria-labelledby="examples-title">
+              <div className="example-section__heading">
+                <h2 id="examples-title">
+                  Not sure what to enter? Try an example.
+                </h2>
+              </div>
+              <div className="example-grid">
+                {scenarioExamples.map((example) => {
+                  const isSelected = selectedExample === example.id;
+
+                  return (
+                    <button
+                      className={`example-card${isSelected ? " is-selected" : ""}`}
+                      type="button"
+                      aria-pressed={isSelected}
+                      onClick={() => selectExample(example)}
+                      key={example.id}
+                    >
+                      <span className="example-card__indicator" aria-hidden="true">
+                        {isSelected ? "\u2713" : ""}
+                      </span>
+                      <strong>{example.title}</strong>
+                      <span>{example.summary}</span>
+                      <small>{example.values.deadline}</small>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
           </div>
         )}
 
