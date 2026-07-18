@@ -14,6 +14,14 @@ type FormData = {
 
 type FormErrors = Partial<Record<"plan" | "success", string>>;
 type ViewState = "form" | "loading" | "result" | "error";
+type ExampleId = "saas-launch" | "college-festival" | "youtube-channel";
+
+type ScenarioExample = {
+  id: ExampleId;
+  title: string;
+  summary: string;
+  values: FormData;
+};
 
 const initialFormData: FormData = {
   plan: "",
@@ -21,6 +29,59 @@ const initialFormData: FormData = {
   deadline: "",
   constraints: "",
 };
+
+const scenarioExamples: ScenarioExample[] = [
+  {
+    id: "saas-launch",
+    title: "SaaS Launch",
+    summary: "AI code review for small teams",
+    values: {
+      plan: "Launch an AI code-review tool for small development teams.",
+      success: "Reach 50 paying teams within three months.",
+      deadline: "Three months",
+      constraints:
+        "Solo founder, limited marketing budget, no existing audience.",
+    },
+  },
+  {
+    id: "college-festival",
+    title: "College Tech Festival",
+    summary: "A 300-student technology event",
+    values: {
+      plan: "Organize a technology festival for 300 college students.",
+      success:
+        "Deliver the event on schedule, attract strong participation, and stay within budget.",
+      deadline: "Six weeks",
+      constraints:
+        "Volunteer team, sponsorship dependency, limited planning experience.",
+    },
+  },
+  {
+    id: "youtube-channel",
+    title: "YouTube Channel",
+    summary: "Weekly engineering education",
+    values: {
+      plan: "Start a weekly YouTube channel teaching mechanical engineering concepts.",
+      success:
+        "Publish consistently for six months and reach 10,000 subscribers.",
+      deadline: "Six months",
+      constraints:
+        "Full-time job, solo production, limited video-editing experience.",
+    },
+  },
+];
+
+function normalizeFormValue(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+}
+
+function matchesExample(formData: FormData, exampleValues: FormData) {
+  return (Object.keys(exampleValues) as Array<keyof FormData>).every(
+    (field) =>
+      normalizeFormValue(formData[field]) ===
+      normalizeFormValue(exampleValues[field]),
+  );
+}
 
 const loadingMessages = [
   "Understanding your plan",
@@ -52,6 +113,9 @@ function App() {
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [loadingStage, setLoadingStage] = useState(0);
+  const [selectedExample, setSelectedExample] = useState<ExampleId | null>(
+    null,
+  );
   const activeRequest = useRef<AbortController | null>(null);
   const isMounted = useRef(true);
 
@@ -77,6 +141,20 @@ function App() {
 
     return () => window.clearInterval(stageTimer);
   }, [view]);
+
+  useEffect(() => {
+    if (!selectedExample) {
+      return;
+    }
+
+    const example = scenarioExamples.find(
+      (candidate) => candidate.id === selectedExample,
+    );
+
+    if (example && !matchesExample(formData, example.values)) {
+      setSelectedExample(null);
+    }
+  }, [formData, selectedExample]);
 
   const updateField = (field: keyof FormData, value: string) => {
     setFormData((current) => ({ ...current, [field]: value }));
@@ -202,12 +280,19 @@ function App() {
     }
   };
 
+  const selectExample = (example: ScenarioExample) => {
+    setFormData(example.values);
+    setErrors({});
+    setSelectedExample(example.id);
+  };
+
   const runAnotherSimulation = () => {
     setFormData(initialFormData);
     setErrors({});
     setResult(null);
     setErrorMessage("");
     setLoadingStage(0);
+    setSelectedExample(null);
     setView("form");
   };
 
@@ -229,7 +314,37 @@ function App() {
         </div>
 
         {view === "form" && (
-          <form className="premortem-form" onSubmit={handleSubmit} noValidate>
+          <div className="form-workspace">
+            <section className="example-section" aria-labelledby="examples-title">
+              <div className="example-section__heading">
+                <h2 id="examples-title">Try an example</h2>
+                <p>Start with a scenario, then make it yours.</p>
+              </div>
+              <div className="example-grid">
+                {scenarioExamples.map((example) => {
+                  const isSelected = selectedExample === example.id;
+
+                  return (
+                    <button
+                      className={`example-card${isSelected ? " is-selected" : ""}`}
+                      type="button"
+                      aria-pressed={isSelected}
+                      onClick={() => selectExample(example)}
+                      key={example.id}
+                    >
+                      <span className="example-card__indicator" aria-hidden="true">
+                        {isSelected ? "\u2713" : ""}
+                      </span>
+                      <strong>{example.title}</strong>
+                      <span>{example.summary}</span>
+                      <small>{example.values.deadline}</small>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <form className="premortem-form" onSubmit={handleSubmit} noValidate>
             <div className="form-field">
               <label htmlFor="plan">
                 What are you planning? <span aria-hidden="true">*</span>
@@ -307,7 +422,12 @@ function App() {
             >
               Simulate the future
             </button>
-          </form>
+            <p className="form-disclaimer">
+              AI-generated pre-mortem scenarios are planning exercises, not
+              predictions.
+            </p>
+            </form>
+          </div>
         )}
 
         {view === "loading" && (

@@ -97,6 +97,120 @@ h1 {
   line-height: 1.5;
 }
 
+.form-workspace {
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.example-section {
+  min-width: 0;
+}
+
+.example-section__heading {
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.example-section__heading h2 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+
+.example-section__heading p {
+  margin: 0;
+  color: #766d66;
+  font-size: 0.82rem;
+}
+
+.example-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.example-card {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(2.6rem, 1fr) auto;
+  gap: 0.45rem;
+  min-width: 0;
+  min-height: 7.75rem;
+  padding: 1rem;
+  border: 1px solid rgba(75, 64, 55, 0.2);
+  border-radius: 0.5rem;
+  background: rgba(255, 253, 249, 0.72);
+  color: #2a2521;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.example-card:hover {
+  border-color: #81756b;
+  background: #fffdfa;
+  transform: translateY(-1px);
+}
+
+.example-card:focus-visible {
+  outline: 3px solid #255f62;
+  outline-offset: 3px;
+}
+
+.example-card.is-selected {
+  border-color: #255f62;
+  background: #edf6f2;
+  box-shadow: 0 0 0 2px rgba(37, 95, 98, 0.12);
+}
+
+.example-card strong {
+  padding-right: 1.5rem;
+  font-size: 0.9rem;
+  line-height: 1.25;
+}
+
+.example-card > span:not(.example-card__indicator) {
+  color: #6b625a;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.example-card small {
+  color: #7a3f2b;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.example-card__indicator {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.8rem;
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  place-items: center;
+  border: 1px solid #c9c0b6;
+  border-radius: 50%;
+  background: #fffdfa;
+  color: transparent;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.example-card.is-selected .example-card__indicator {
+  border-color: #255f62;
+  background: #255f62;
+  color: #f5fffc;
+}
+
 .premortem-form {
   display: grid;
   gap: 1.25rem;
@@ -210,6 +324,14 @@ textarea[aria-invalid="true"]:focus {
   cursor: not-allowed;
   opacity: 0.62;
   transform: none;
+}
+
+.form-disclaimer {
+  margin: -0.25rem 0 0;
+  color: #766d66;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .simulation-loading {
@@ -766,6 +888,20 @@ textarea[aria-invalid="true"]:focus {
 
   .premortem-form {
     padding: 1.25rem;
+  }
+
+  .example-section__heading {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  .example-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .example-card {
+    grid-template-rows: auto auto auto;
+    min-height: 0;
   }
 
   .simulation-loading {
