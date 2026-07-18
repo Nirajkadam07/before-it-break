@@ -57,7 +57,7 @@ const simulationResultSchema = z
 
 type SimulationResult = z.infer<typeof simulationResultSchema>;
 
-const CURRENT_MODEL = "gpt-5.6-sol";
+const CURRENT_MODEL = "gpt-5-mini";
 const OPENAI_TIMEOUT_MS = 45_000;
 
 const SYSTEM_PROMPT = `You are conducting a concise pre-mortem for a proposed plan.
