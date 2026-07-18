@@ -1,6 +1,9 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import SimulationResultView from "./SimulationResultView";
-import { mockSimulationResult } from "./simulation";
+import {
+  simulationResultSchema,
+  type SimulationResult,
+} from "./simulation";
 
 type FormData = {
   plan: string;
@@ -10,7 +13,7 @@ type FormData = {
 };
 
 type FormErrors = Partial<Record<"plan" | "success", string>>;
-type ViewState = "form" | "loading" | "result";
+type ViewState = "form" | "loading" | "result" | "error";
 
 const initialFormData: FormData = {
   plan: "",
@@ -19,19 +22,60 @@ const initialFormData: FormData = {
   constraints: "",
 };
 
+const loadingMessages = [
+  "Understanding your plan",
+  "Extracting hidden assumptions",
+  "Simulating the failed future",
+  "Investigating root causes",
+  "Identifying warning signals",
+  "Building the prevention plan",
+] as const;
+
+class SimulationRequestError extends Error {}
+
+function responseErrorMessage(status: number) {
+  if (status === 400) {
+    return "The server could not accept these details. Review your plan and try again.";
+  }
+
+  if (status === 429) {
+    return "The simulation service is busy right now. Please wait a moment and try again.";
+  }
+
+  return "We couldn't complete the simulation. Please try again.";
+}
+
 function App() {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<FormErrors>({});
   const [view, setView] = useState<ViewState>("form");
+  const [result, setResult] = useState<SimulationResult | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [loadingStage, setLoadingStage] = useState(0);
+  const activeRequest = useRef<AbortController | null>(null);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+
+    return () => {
+      isMounted.current = false;
+      activeRequest.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     if (view !== "loading") {
       return;
     }
 
-    const simulationTimer = window.setTimeout(() => setView("result"), 1500);
+    const stageTimer = window.setInterval(() => {
+      setLoadingStage((current) =>
+        Math.min(current + 1, loadingMessages.length - 1),
+      );
+    }, 3_200);
 
-    return () => window.clearTimeout(simulationTimer);
+    return () => window.clearInterval(stageTimer);
   }, [view]);
 
   const updateField = (field: keyof FormData, value: string) => {
@@ -39,6 +83,102 @@ function App() {
 
     if ((field === "plan" || field === "success") && value.trim()) {
       setErrors((current) => ({ ...current, [field]: undefined }));
+    }
+  };
+
+  const runSimulation = async () => {
+    if (activeRequest.current) {
+      return;
+    }
+
+    const controller = new AbortController();
+    activeRequest.current = controller;
+    setErrorMessage("");
+    setLoadingStage(0);
+    setView("loading");
+
+    let didTimeout = false;
+    const requestTimeout = window.setTimeout(() => {
+      didTimeout = true;
+      controller.abort();
+    }, 60_000);
+
+    try {
+      const response = await fetch("/api/simulate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          plan: formData.plan,
+          successDefinition: formData.success,
+          deadline: formData.deadline,
+          constraints: formData.constraints,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new SimulationRequestError(responseErrorMessage(response.status));
+      }
+
+      let responseBody: unknown;
+
+      try {
+        responseBody = await response.json();
+      } catch {
+        throw new SimulationRequestError(
+          "The simulation returned an unreadable result. Please try again.",
+        );
+      }
+
+      const parsedResult = simulationResultSchema.safeParse(responseBody);
+
+      if (!parsedResult.success) {
+        throw new SimulationRequestError(
+          "The simulation returned an unexpected result. Please try again.",
+        );
+      }
+
+      if (!isMounted.current) {
+        return;
+      }
+
+      setLoadingStage(loadingMessages.length);
+      await new Promise((resolve) => window.setTimeout(resolve, 350));
+
+      if (!isMounted.current) {
+        return;
+      }
+
+      setResult(parsedResult.data);
+      setView("result");
+    } catch (error) {
+      if (!isMounted.current) {
+        return;
+      }
+
+      if (didTimeout) {
+        setErrorMessage(
+          "The simulation took longer than 60 seconds. Please try again.",
+        );
+      } else if (error instanceof SimulationRequestError) {
+        setErrorMessage(error.message);
+      } else if (error instanceof DOMException && error.name === "AbortError") {
+        setErrorMessage("The simulation was interrupted. Please try again.");
+      } else {
+        setErrorMessage(
+          "We couldn't reach the simulation service. Please try again.",
+        );
+      }
+
+      setView("error");
+    } finally {
+      window.clearTimeout(requestTimeout);
+
+      if (activeRequest.current === controller) {
+        activeRequest.current = null;
+      }
     }
   };
 
@@ -58,14 +198,21 @@ function App() {
     setErrors(nextErrors);
 
     if (Object.keys(nextErrors).length === 0) {
-      console.log("Pre-mortem form data:", formData);
-      setView("loading");
+      void runSimulation();
     }
   };
 
   const runAnotherSimulation = () => {
     setFormData(initialFormData);
     setErrors({});
+    setResult(null);
+    setErrorMessage("");
+    setLoadingStage(0);
+    setView("form");
+  };
+
+  const editPlan = () => {
+    setErrorMessage("");
     setView("form");
   };
 
@@ -153,23 +300,78 @@ function App() {
               />
             </div>
 
-            <button className="primary-button" type="submit">
+            <button
+              className="primary-button"
+              type="submit"
+              disabled={activeRequest.current !== null}
+            >
               Simulate the future
             </button>
           </form>
         )}
 
         {view === "loading" && (
-          <div className="simulation-loading" role="status" aria-live="polite">
-            <span className="loading-indicator" aria-hidden="true" />
-            <p>Simulating the failed future...</p>
-            <span>Investigators are tracing what went wrong.</span>
+          <div className="simulation-loading" aria-labelledby="loading-title">
+            <div className="loading-header">
+              <span className="loading-indicator" aria-hidden="true" />
+              <div className="loading-copy">
+                <p id="loading-title">Investigation in progress</p>
+                <span>This may take around 20 seconds.</span>
+              </div>
+            </div>
+
+            <ol className="loading-stages">
+              {loadingMessages.map((message, index) => {
+                const isComplete = index < loadingStage;
+                const isActive =
+                  loadingStage < loadingMessages.length &&
+                  index === loadingStage;
+
+                return (
+                  <li
+                    className={`loading-stage${isComplete ? " is-complete" : ""}${isActive ? " is-active" : ""}`}
+                    key={message}
+                  >
+                    <span className="loading-stage__marker" aria-hidden="true">
+                      {isComplete ? "\u2713" : index + 1}
+                    </span>
+                    <span>{message}</span>
+                  </li>
+                );
+              })}
+            </ol>
+
+            <p className="loading-announcement" role="status" aria-live="polite">
+              {loadingStage < loadingMessages.length
+                ? loadingMessages[loadingStage]
+                : "Simulation complete"}
+            </p>
           </div>
         )}
 
-        {view === "result" && (
+        {view === "error" && (
+          <section className="simulation-error" aria-labelledby="error-title">
+            <p className="error-kicker">Simulation interrupted</p>
+            <h2 id="error-title">The future is still unwritten.</h2>
+            <p role="alert">{errorMessage}</p>
+            <div className="error-actions">
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() => void runSimulation()}
+              >
+                Try again
+              </button>
+              <button className="secondary-button" type="button" onClick={editPlan}>
+                Edit plan
+              </button>
+            </div>
+          </section>
+        )}
+
+        {view === "result" && result && (
           <SimulationResultView
-            result={mockSimulationResult}
+            result={result}
             onRestart={runAnotherSimulation}
           />
         )}

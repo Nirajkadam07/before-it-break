@@ -206,42 +206,182 @@ textarea[aria-invalid="true"]:focus {
   outline-offset: 4px;
 }
 
+.primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+  transform: none;
+}
+
 .simulation-loading {
   display: grid;
-  justify-items: center;
-  gap: 0.75rem;
+  gap: 2rem;
   min-height: 20rem;
-  padding: 4rem 1.5rem;
+  padding: clamp(1.5rem, 5vw, 2.75rem);
   border: 1px solid rgba(75, 64, 55, 0.14);
   border-radius: 0.5rem;
   background: rgba(255, 253, 249, 0.88);
-  text-align: center;
   box-shadow: 0 1.5rem 4rem rgba(67, 43, 34, 0.12);
 }
 
-.simulation-loading p {
-  margin: 0.5rem 0 0;
+.loading-header {
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+}
+
+.loading-copy p {
+  margin: 0 0 0.35rem;
   font-size: clamp(1.35rem, 3vw, 1.8rem);
   font-weight: 800;
 }
 
-.simulation-loading > span:last-child {
+.loading-copy span {
   color: #6c625a;
 }
 
 .loading-indicator {
-  width: 3rem;
-  height: 3rem;
+  flex: 0 0 auto;
+  width: 2.75rem;
+  height: 2.75rem;
   border: 4px solid #d8cec3;
   border-top-color: #c94f32;
   border-radius: 50%;
   animation: spin 800ms linear infinite;
 }
 
+.loading-stages {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.loading-stage {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.9rem;
+  align-items: center;
+  min-height: 3.25rem;
+  color: #8a8179;
+  font-weight: 650;
+  transition: color 180ms ease;
+}
+
+.loading-stage:not(:last-child)::after {
+  position: absolute;
+  z-index: 0;
+  top: 2.15rem;
+  bottom: -0.1rem;
+  left: 0.96rem;
+  width: 2px;
+  background: #d8cec3;
+  content: "";
+}
+
+.loading-stage__marker {
+  display: grid;
+  z-index: 1;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 2px solid #c9c0b6;
+  border-radius: 50%;
+  background: #fffdfa;
+  color: #766d66;
+  font-size: 0.75rem;
+  font-weight: 800;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.loading-stage.is-active {
+  color: #2a2521;
+}
+
+.loading-stage.is-active .loading-stage__marker {
+  border-color: #c94f32;
+  color: #a93e27;
+  box-shadow: 0 0 0 4px rgba(201, 79, 50, 0.12);
+}
+
+.loading-stage.is-complete {
+  color: #3d6f68;
+}
+
+.loading-stage.is-complete .loading-stage__marker {
+  border-color: #255f62;
+  background: #255f62;
+  color: #f5fffc;
+}
+
+.loading-stage.is-complete:not(:last-child)::after {
+  background: #78a39c;
+}
+
+.loading-announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
+}
+
+.simulation-error {
+  padding: clamp(1.5rem, 5vw, 3rem);
+  border: 1px solid rgba(181, 64, 40, 0.24);
+  border-left: 4px solid #c94f32;
+  border-radius: 0 0.5rem 0.5rem 0;
+  background: rgba(255, 250, 242, 0.9);
+  box-shadow: 0 1.5rem 4rem rgba(67, 43, 34, 0.12);
+}
+
+.error-kicker {
+  margin: 0 0 0.75rem;
+  color: #a33c26;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.simulation-error h2 {
+  margin: 0;
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.simulation-error > p:not(.error-kicker) {
+  max-width: 42rem;
+  margin: 1rem 0 0;
+  color: #5c534c;
+  line-height: 1.65;
+}
+
+.error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+}
+
+.error-actions .primary-button {
+  margin-top: 0;
 }
 
 .simulation-result {
@@ -628,6 +768,18 @@ textarea[aria-invalid="true"]:focus {
     padding: 1.25rem;
   }
 
+  .simulation-loading {
+    padding: 1.25rem;
+  }
+
+  .loading-header {
+    align-items: flex-start;
+  }
+
+  .error-actions {
+    display: grid;
+  }
+
   .agent-grid {
     grid-template-columns: 1fr;
   }
@@ -658,5 +810,10 @@ textarea[aria-invalid="true"]:focus {
 @media (prefers-reduced-motion: reduce) {
   .loading-indicator {
     animation-duration: 1.8s;
+  }
+
+  .loading-stage,
+  .loading-stage__marker {
+    transition: none;
   }
 }
