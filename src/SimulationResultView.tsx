@@ -79,7 +79,7 @@ function SimulationResultView({
           <span>One weak signal triggered the next.</span>
         </div>
         <ol className="failure-chain">
-          {result.failureChain.map((step, index) => (
+          {result.failureChain.slice(0, 6).map((step, index) => (
             <li key={`${step}-${index}`}>
               <span className="chain-number">{index + 1}</span>
               <p>{step}</p>

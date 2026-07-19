@@ -846,6 +846,7 @@ textarea[aria-invalid="true"]:focus {
   color: #443d38;
   font-weight: 650;
   line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .warning-section {

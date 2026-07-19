@@ -2,7 +2,10 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
+
+const FUNCTION_INSTANCE_INITIALIZED_AT = new Date().toISOString();
+let functionInstanceHasHandledRequest = false;
 
 const requestSchema = z
   .object({
@@ -45,8 +48,8 @@ const simulationResultSchema = z
     overallRisk: riskSchema,
     agentFindings: z.array(agentFindingSchema).length(4),
     failureChain: z
-      .array(z.string().trim().min(1).max(300))
-      .min(2)
+      .array(z.string().trim().min(1).max(120))
+      .min(4)
       .max(6),
     warningSignals: z
       .array(z.string().trim().min(1).max(300))
@@ -60,8 +63,8 @@ const simulationResultSchema = z
 type SimulationResult = z.infer<typeof simulationResultSchema>;
 
 const CURRENT_MODEL = "gpt-5-mini";
-const OPENAI_TIMEOUT_MS = 45_000;
-const ENDPOINT_BUDGET_MS = 53_000;
+const OPENAI_TIMEOUT_MS = 75_000;
+const ENDPOINT_BUDGET_MS = 87_000;
 const MIN_RETRY_BUDGET_MS = 15_000;
 const MAX_OPENAI_ATTEMPTS = 2;
 
@@ -77,13 +80,26 @@ type FailureClassification =
   | "missing_parsed_output"
   | "zod_validation_error"
   | "vercel_execution_timeout"
+  | "request_aborted"
   | "openai_request_error"
   | "unexpected_error";
+
+type ErrorCategory =
+  | "invalid_request"
+  | "timeout"
+  | "temporary_service_error"
+  | "generation_error";
 
 type StageTimings = {
   requestValidationMs: number | null;
   openAIRequestMs: number | null;
   structuredOutputValidationMs: number | null;
+};
+
+type RequestDiagnostics = {
+  openAIAttemptCount: number;
+  aborted: boolean;
+  timedOut: boolean;
 };
 
 class EndpointDeadlineError extends Error {
@@ -104,6 +120,16 @@ Analyze the scenario from exactly four perspectives, returning one finding for e
 4. Skeptic
 
 Make every finding specific to the supplied scenario. Build a chronological failure chain, list observable early warning signals, and recommend concrete preventive actions. Include at least one preventive action for each timeframe: Today, This Week, and Monitor. End with a credible alternate future showing how early action changes the outcome.
+
+The failureChain must follow these rules exactly:
+- Return 4 to 6 steps only.
+- Put one causal event in each array item.
+- Write one short sentence per item.
+- Do not use numbered substeps.
+- Do not include newline-separated content.
+- Do not use arrows or bullet symbols.
+- Do not join multiple events in one item.
+- Make each step logically cause the next step.
 
 Keep the response concise, specific, and actionable. Do not include markdown or commentary outside the structured result.`;
 
@@ -184,6 +210,10 @@ function classifyOpenAIError(error: unknown): FailureClassification {
     return "zod_validation_error";
   }
 
+  if (error instanceof OpenAI.APIUserAbortError) {
+    return "request_aborted";
+  }
+
   if (error instanceof OpenAI.APIConnectionTimeoutError) {
     return "openai_timeout";
   }
@@ -221,6 +251,28 @@ function classifyOpenAIError(error: unknown): FailureClassification {
   return "openai_request_error";
 }
 
+function publicErrorCategory(
+  classification: FailureClassification,
+): ErrorCategory {
+  if (
+    classification === "openai_timeout" ||
+    classification === "vercel_execution_timeout"
+  ) {
+    return "timeout";
+  }
+
+  if (
+    classification === "rate_limit" ||
+    classification === "temporary_openai_5xx" ||
+    classification === "temporary_openai_error" ||
+    classification === "network_error"
+  ) {
+    return "temporary_service_error";
+  }
+
+  return "generation_error";
+}
+
 function isTransientFailure(classification: FailureClassification) {
   return (
     classification === "openai_timeout" ||
@@ -242,6 +294,7 @@ async function requestSimulation(
   openai: OpenAI,
   scenario: SimulationRequest,
   timeout: number,
+  signal: AbortSignal,
 ) {
   const userPrompt = `Scenario data:\n${JSON.stringify(scenario, null, 2)}`;
 
@@ -263,7 +316,7 @@ async function requestSimulation(
         format: zodTextFormat(simulationResultSchema, "simulation_result"),
       },
     },
-    { maxRetries: 0, timeout },
+    { maxRetries: 0, signal, timeout },
   );
 }
 
@@ -272,6 +325,8 @@ async function requestSimulationWithRetry(
   scenario: SimulationRequest,
   endpointStartedAt: number,
   requestId: string,
+  signal: AbortSignal,
+  diagnostics: RequestDiagnostics,
 ) {
   const openai = new OpenAI({
     apiKey,
@@ -280,9 +335,11 @@ async function requestSimulationWithRetry(
   });
 
   for (let attempt = 1; attempt <= MAX_OPENAI_ATTEMPTS; attempt += 1) {
+    diagnostics.openAIAttemptCount = attempt;
     const remainingBudget = ENDPOINT_BUDGET_MS - durationMs(endpointStartedAt);
 
     if (remainingBudget <= 1_000) {
+      diagnostics.timedOut = true;
       throw new EndpointDeadlineError();
     }
 
@@ -297,6 +354,7 @@ async function requestSimulationWithRetry(
         openai,
         scenario,
         attemptTimeout,
+        signal,
       );
 
       console.info("[simulate] OpenAI attempt completed", {
@@ -307,6 +365,18 @@ async function requestSimulationWithRetry(
       return response;
     } catch (error) {
       const classification = classifyOpenAIError(error);
+
+      if (
+        classification === "openai_timeout" ||
+        classification === "vercel_execution_timeout"
+      ) {
+        diagnostics.timedOut = true;
+      }
+
+      if (classification === "request_aborted") {
+        diagnostics.aborted = true;
+      }
+
       const remainingAfterFailure =
         ENDPOINT_BUDGET_MS - durationMs(endpointStartedAt);
       const retryDelayMs =
@@ -359,12 +429,27 @@ export default {
   async fetch(request: Request): Promise<Response> {
     const endpointStartedAt = performance.now();
     const requestId = getRequestId(request);
+    const isFirstRequestForInstance = !functionInstanceHasHandledRequest;
+    functionInstanceHasHandledRequest = true;
     const timings: StageTimings = {
       requestValidationMs: null,
       openAIRequestMs: null,
       structuredOutputValidationMs: null,
     };
+    const diagnostics: RequestDiagnostics = {
+      openAIAttemptCount: 0,
+      aborted: request.signal.aborted,
+      timedOut: false,
+    };
     let responseStatus = 500;
+
+    const markRequestAborted = () => {
+      diagnostics.aborted = true;
+    };
+
+    request.signal.addEventListener("abort", markRequestAborted, {
+      once: true,
+    });
 
     const respond = (
       body: unknown,
@@ -378,13 +463,17 @@ export default {
     console.info("[simulate] request started", {
       requestId,
       method: request.method,
+      coldStart: isFirstRequestForInstance,
+      functionInstanceInitializedAt: FUNCTION_INSTANCE_INITIALIZED_AT,
     });
 
     try {
       if (request.method !== "POST") {
-        return respond({ error: "Method not allowed." }, 405, {
-          Allow: "POST",
-        });
+        return respond(
+          { error: "Method not allowed.", category: "invalid_request" },
+          405,
+          { Allow: "POST" },
+        );
       }
 
       const validationStartedAt = performance.now();
@@ -400,7 +489,10 @@ export default {
           errorName: error instanceof Error ? error.name : "UnknownError",
           durationMs: timings.requestValidationMs,
         });
-        return respond({ error: "Invalid request body." }, 400);
+        return respond(
+          { error: "Invalid request body.", category: "invalid_request" },
+          400,
+        );
       }
 
       const parsedRequest = requestSchema.safeParse(body);
@@ -416,6 +508,7 @@ export default {
         return respond(
           {
             error: "Invalid request body.",
+            category: "invalid_request",
             fields: parsedRequest.error.flatten().fieldErrors,
           },
           400,
@@ -430,7 +523,13 @@ export default {
           classification: "missing_api_key",
           safeMessage: "OPENAI_API_KEY is missing",
         });
-        return respond({ error: "Unable to generate simulation." }, 500);
+        return respond(
+          {
+            error: "Unable to generate simulation.",
+            category: "generation_error",
+          },
+          500,
+        );
       }
 
       const openAIStartedAt = performance.now();
@@ -442,11 +541,24 @@ export default {
           parsedRequest.data,
           endpointStartedAt,
           requestId,
+          request.signal,
+          diagnostics,
         );
         timings.openAIRequestMs = durationMs(openAIStartedAt);
       } catch (error) {
         timings.openAIRequestMs = durationMs(openAIStartedAt);
         const classification = classifyOpenAIError(error);
+
+        if (
+          classification === "openai_timeout" ||
+          classification === "vercel_execution_timeout"
+        ) {
+          diagnostics.timedOut = true;
+        }
+
+        if (classification === "request_aborted") {
+          diagnostics.aborted = true;
+        }
 
         console.error("[simulate] OpenAI request failed", {
           requestId,
@@ -454,7 +566,13 @@ export default {
           durationMs: timings.openAIRequestMs,
           ...safeOpenAIErrorDetails(error),
         });
-        return respond({ error: "Unable to generate simulation." }, 500);
+        return respond(
+          {
+            error: "Unable to generate simulation.",
+            category: publicErrorCategory(classification),
+          },
+          500,
+        );
       }
 
       const outputValidationStartedAt = performance.now();
@@ -472,7 +590,13 @@ export default {
           classification,
           durationMs: timings.structuredOutputValidationMs,
         });
-        return respond({ error: "Unable to generate simulation." }, 500);
+        return respond(
+          {
+            error: "Unable to generate simulation.",
+            category: publicErrorCategory(classification),
+          },
+          500,
+        );
       }
 
       let result: SimulationResult;
@@ -494,7 +618,13 @@ export default {
             error instanceof z.ZodError ? safeZodIssues(error) : undefined,
           errorName: error instanceof Error ? error.name : "UnknownError",
         });
-        return respond({ error: "Unable to generate simulation." }, 500);
+        return respond(
+          {
+            error: "Unable to generate simulation.",
+            category: "generation_error",
+          },
+          500,
+        );
       }
 
       return respond(result, 200);
@@ -505,13 +635,26 @@ export default {
         errorName: error instanceof Error ? error.name : "UnknownError",
         safeMessage: "Unexpected endpoint failure.",
       });
-      return respond({ error: "Unable to generate simulation." }, 500);
+      return respond(
+        {
+          error: "Unable to generate simulation.",
+          category: "generation_error",
+        },
+        500,
+      );
     } finally {
+      request.signal.removeEventListener("abort", markRequestAborted);
       console.info("[simulate] request completed", {
         requestId,
-        status: responseStatus,
+        coldStart: isFirstRequestForInstance,
+        functionInstanceInitializedAt: FUNCTION_INSTANCE_INITIALIZED_AT,
+        finalHttpStatus: responseStatus,
+        openAIAttemptCount: diagnostics.openAIAttemptCount,
+        aborted: diagnostics.aborted,
+        timedOut: diagnostics.timedOut,
         ...timings,
-        totalDurationMs: durationMs(endpointStartedAt),
+        openAIDurationMs: timings.openAIRequestMs,
+        totalRequestDurationMs: durationMs(endpointStartedAt),
       });
     }
   },

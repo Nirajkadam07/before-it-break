@@ -30,8 +30,8 @@ export const simulationResultSchema = z
     overallRisk: riskSchema,
     agentFindings: z.array(agentFindingSchema).length(4),
     failureChain: z
-      .array(z.string().trim().min(1).max(300))
-      .min(2)
+      .array(z.string().trim().min(1).max(120))
+      .min(4)
       .max(6),
     warningSignals: z
       .array(z.string().trim().min(1).max(300))

@@ -98,24 +98,52 @@ const loadingMessages = [
   "Identifying warning signals",
   "Building the prevention plan",
 ] as const;
-const FRONTEND_TIMEOUT_MS = 55_000;
+const FRONTEND_TIMEOUT_MS = 90_000;
+
+type ApiErrorCategory =
+  | "invalid_request"
+  | "timeout"
+  | "temporary_service_error"
+  | "generation_error";
 
 class SimulationRequestError extends Error {}
 
-function responseErrorMessage(status: number) {
+function responseErrorMessage(
+  status: number,
+  category: ApiErrorCategory | null,
+) {
   if (status === 400) {
     return "The server could not accept these details. Review your plan and try again.";
   }
 
-  if (status === 429) {
-    return "The simulation service is busy right now. Please wait a moment and try again.";
-  }
-
-  if (status === 408 || status === 504) {
+  if (category === "timeout" || status === 408 || status === 504) {
     return "The investigation took longer than expected. Your plan is saved, so you can try again.";
   }
 
+  if (category === "temporary_service_error" || status === 429) {
+    return "The simulation service is temporarily unavailable. Your plan is saved, so you can try again.";
+  }
+
   return "We couldn't complete the simulation. Please try again.";
+}
+
+function readErrorCategory(body: unknown): ApiErrorCategory | null {
+  if (!body || typeof body !== "object" || !("category" in body)) {
+    return null;
+  }
+
+  const category = body.category;
+
+  if (
+    category === "invalid_request" ||
+    category === "timeout" ||
+    category === "temporary_service_error" ||
+    category === "generation_error"
+  ) {
+    return category;
+  }
+
+  return null;
 }
 
 function App() {
@@ -221,7 +249,17 @@ function App() {
       }
 
       if (!response.ok) {
-        throw new SimulationRequestError(responseErrorMessage(response.status));
+        let category: ApiErrorCategory | null = null;
+
+        try {
+          category = readErrorCategory(await response.json());
+        } catch {
+          // The HTTP status still provides a safe fallback message.
+        }
+
+        throw new SimulationRequestError(
+          responseErrorMessage(response.status, category),
+        );
       }
 
       let responseBody: unknown;
