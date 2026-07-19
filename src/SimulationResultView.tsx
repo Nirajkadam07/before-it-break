@@ -20,6 +20,10 @@ function severityClass(severity: SimulationResult["overallRisk"]) {
   return `severity severity--${severity.toLowerCase()}`;
 }
 
+function handlePrint() {
+  window.print();
+}
+
 function SimulationResultView({
   result,
   onRestart,
@@ -147,7 +151,10 @@ function SimulationResultView({
         <p>{result.alternateFuture}</p>
       </section>
 
-      <div className="result-footer">
+      <div className="result-footer print-hidden">
+        <button className="secondary-button" type="button" onClick={handlePrint}>
+          Print / Save PDF
+        </button>
         <button className="secondary-button" type="button" onClick={onRestart}>
           Run another simulation
         </button>

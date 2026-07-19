@@ -993,6 +993,8 @@ textarea[aria-invalid="true"]:focus {
 
 .result-footer {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   justify-content: center;
 }
 
@@ -1203,5 +1205,192 @@ textarea[aria-invalid="true"]:focus {
   .loading-stage,
   .loading-stage__marker {
     transition: none;
+  }
+}
+
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 0;
+    background: #fff;
+  }
+
+  body {
+    color: #16120f;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .landing {
+    min-height: 0;
+    padding: 0;
+  }
+
+  .hero,
+  .hero--expanded {
+    display: block;
+    width: 100%;
+    min-height: 0;
+    margin: 0;
+  }
+
+  .hero--expanded > .intro,
+  .print-hidden {
+    display: none !important;
+  }
+
+  .simulation-result {
+    display: block;
+    width: 100%;
+    overflow: visible;
+  }
+
+  .result-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1.5rem;
+    margin: 0 0 1.25rem;
+    padding: 1.25rem;
+    border: 1px solid #5c534c;
+    border-top: 4px solid #c94f32;
+    background: #fff;
+    color: #16120f;
+    box-shadow: none;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .result-hero h2 {
+    max-width: 22ch;
+    font-size: 26pt;
+    line-height: 1.08;
+  }
+
+  .failure-narrative {
+    margin-top: 0.75rem;
+    color: #443d38;
+    font-size: 11pt;
+    line-height: 1.5;
+  }
+
+  .risk-summary {
+    min-width: 7rem;
+    padding: 0.75rem;
+    border-color: #8b7c72;
+    background: #fff;
+    color: #443d38;
+  }
+
+  .severity {
+    border: 1px solid currentColor;
+  }
+
+  .result-section,
+  .alternate-future {
+    margin-top: 1.25rem;
+  }
+
+  .result-section {
+    padding-top: 1rem;
+  }
+
+  .section-heading {
+    margin-bottom: 0.8rem;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .section-heading h3,
+  .alternate-future h3 {
+    font-size: 18pt;
+  }
+
+  .agent-grid,
+  .warning-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+  }
+
+  .agent-card,
+  .warning-grid li,
+  .action-group,
+  .failure-chain li,
+  .alternate-future {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .agent-card,
+  .failure-chain li,
+  .action-group {
+    padding: 0.8rem;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  .agent-card p,
+  .warning-grid li,
+  .action-group li,
+  .alternate-future > p:last-child {
+    font-size: 9.5pt;
+    line-height: 1.45;
+  }
+
+  .chain-section {
+    padding-block: 1rem;
+  }
+
+  .failure-chain {
+    grid-auto-columns: auto;
+    grid-auto-flow: row;
+    gap: 0.55rem;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .failure-chain li {
+    grid-template-columns: 2rem minmax(0, 1fr);
+    min-height: 0;
+    gap: 0.75rem;
+    align-items: start;
+  }
+
+  .failure-chain li:not(:last-child)::after {
+    display: none;
+  }
+
+  .failure-chain p {
+    align-self: center;
+    font-size: 9.5pt;
+    line-height: 1.4;
+  }
+
+  .warning-grid li {
+    min-height: 0;
+    padding: 0.7rem;
+    background: #fff;
+  }
+
+  .action-groups {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .action-group--today {
+    box-shadow: none;
+  }
+
+  .action-group li {
+    padding: 0.55rem 0;
+  }
+
+  .alternate-future {
+    padding: 1rem;
+    background: #fff;
   }
 }
