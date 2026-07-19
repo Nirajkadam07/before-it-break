@@ -98,6 +98,7 @@ const loadingMessages = [
   "Identifying warning signals",
   "Building the prevention plan",
 ] as const;
+const FRONTEND_TIMEOUT_MS = 55_000;
 
 class SimulationRequestError extends Error {}
 
@@ -108,6 +109,10 @@ function responseErrorMessage(status: number) {
 
   if (status === 429) {
     return "The simulation service is busy right now. Please wait a moment and try again.";
+  }
+
+  if (status === 408 || status === 504) {
+    return "The investigation took longer than expected. Your plan is saved, so you can try again.";
   }
 
   return "We couldn't complete the simulation. Please try again.";
@@ -189,7 +194,7 @@ function App() {
     const requestTimeout = window.setTimeout(() => {
       didTimeout = true;
       controller.abort();
-    }, 60_000);
+    }, FRONTEND_TIMEOUT_MS);
 
     try {
       const response = await fetch("/api/simulate", {
@@ -205,6 +210,15 @@ function App() {
         }),
         signal: controller.signal,
       });
+
+      const requestId = response.headers.get("X-Request-Id");
+
+      if (import.meta.env.DEV && requestId) {
+        console.info("[simulate] server request", {
+          requestId,
+          status: response.status,
+        });
+      }
 
       if (!response.ok) {
         throw new SimulationRequestError(responseErrorMessage(response.status));
@@ -248,7 +262,7 @@ function App() {
 
       if (didTimeout) {
         setErrorMessage(
-          "The simulation took longer than 60 seconds. Please try again.",
+          "The investigation took longer than expected. Your plan is saved, so you can try again.",
         );
       } else if (error instanceof SimulationRequestError) {
         setErrorMessage(error.message);
@@ -256,7 +270,7 @@ function App() {
         setErrorMessage("The simulation was interrupted. Please try again.");
       } else {
         setErrorMessage(
-          "We couldn't reach the simulation service. Please try again.",
+          "We couldn't connect to the simulation service. Your plan is saved. Check your connection and try again.",
         );
       }
 
@@ -501,7 +515,10 @@ function App() {
               <span className="loading-indicator" aria-hidden="true" />
               <div className="loading-copy">
                 <p id="loading-title">Investigation in progress</p>
-                <span>This may take around 20 seconds.</span>
+                <span>
+                  Our AI investigators are examining your plan from multiple
+                  perspectives.
+                </span>
               </div>
             </div>
 
